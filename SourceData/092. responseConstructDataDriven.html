@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+<div id="root">
+    <h3>{{name}}:{{message.meg}}</h3>
+    <ul>
+        <li></li>
+        <li></li>
+        <li></li>
+    </ul>
+</div>
+<script>
+  /** 虚拟 DOM 构造函数 */
+  class VNode {
+    constructor(tag, data, value, type) {
+      this.tag = tag && tag.toLowerCase();
+      this.data = data;
+      this.value = value;
+      this.type = type;
+      this.children = [];
+    }
+
+    appendChild(vnode) {
+      this.children.push(vnode);
+    }
+  }
+
+  // 创建虚拟dom： Vdom (由 HTML DOM  ---> VNode: 将这个函数当做 compiler 函数)
+  function generalVNode(node) {
+    //  获取 tag
+    let nodeType = node.nodeType,
+      _vnode = null; // 接收当前节点的内容，包括其属性值
+    if (nodeType === 1) {
+      let nodeTagName = node.nodeName,
+        attrs = node.attributes, // .attributes 获取到的是节点上所有属性组成的伪数组。
+        _attrsObj = {}; // 负责接收将attrs这个伪数组转换成对象后的内容
+
+
+      for (let i = 0; i < attrs.length; i++) { // attrs[i] 是一个属性节点，它身上有两个属性(nodeName,nodeValuee) 它的nodeType === 2
+        _attrsObj[attrs[i].nodeName] = attrs[i].nodeValue
+      }
+
+      _vnode = new VNode(nodeTagName, _attrsObj, undefined, nodeType)
+
+      //  考虑： 当前传进来的 ndoe（真实dom）是否存在子元素
+      let nodeChilds = node.childNodes;
+      for (let i = 0; i < nodeChilds.length; i++) {
+        _vnode.appendChild(generalVNode(nodeChilds[i]));  // 递归处理层级嵌套问题
+      }
+    } else if (nodeType === 3) {
+      _vnode = new VNode(undefined, undefined, node.nodeValue, nodeType)
+    }
+
+    return _vnode; // 将定义后的节点内容返回
+  }
+
+  /** 将虚拟 DOM 转换成真正的 DOM */
+  function parseVNode(vnode) {
+    //  创建 真实 DOM
+    let type = vnode.type,
+      _node = null; // 作为函数返回的真实dom
+
+    if (type === 3) {
+      return document.createTextNode(vnode.value);
+    } else if (type === 1) { // 需要判断是否存在子节点 包括其所有属性
+      _node = document.createElement(vnode.tag);
+
+      //  判断属性
+      let data = vnode.data; // 现在这个data是存放我们拿到的dom元素节点的键值对
+      Object.keys(data).forEach((key) => {
+        let attrName = key,
+          attrValue = data[key];
+        _node.setAttribute(attrName, attrValue)
+      })
+
+      //  子元素
+      let children = vnode.children;
+      children.forEach(subVNode => {
+        return _node.appendChild(parseVNode(subVNode))
+      });
+
+      return _node
+    }
+  }
+
+  let regBrace = /\{\{(.+?)\}\}/g
+
+  /** 根据插值语法内的路径 访问data中对象成员 */
+  function getValueByPath(obj, path) {
+    let paths = path.split('.'); // [ xxx, yyy, zzz ]
+    let res = obj;
+    let prop;
+    while (prop = paths.shift()) {
+      res = res[prop];
+    }
+    return res;
+  }
+
+  // 将 未渲染值的 VNode 和 数据 data结合， 得到填充数据的 VNode： 模拟 AST -> VNode
+  function combine(vnode, data) {
+    let _type = vnode.type,
+      _data = vnode.data,
+      _value = vnode.value,
+      _tag = vnode.tag,
+      _children = vnode.children;
+
+
+    let _vnode = null;
+    if (_type === 3) {
+      // 对文本节点进行处理
+      _value = _value.replace(regBrace, function (_, g) {
+        return getValueByPath(data, g.trim())
+      })
+      _vnode = new VNode(_tag, _data, _value, _type);
+
+    } else if (_type === 1) { // 需要判断是否存在子节点 包括其所有属性
+      _vnode = new VNode(_tag, _data, _value, _type);
+      _children.forEach(_subVNode => _vnode.appendChild(combine(_subVNode, data)))
+    }
+    return _vnode
+  }
+
+  //  封装函数
+  function MyVue(options) {
+    //  vue 中：内部数据 _ 下划线开头，静态数据 $ 开头
+    this._data = options.data;
+    //  准备工作  预备模板
+    let elm = document.getElementById("root")
+    this._template = elm
+    this._parent = elm.parentNode;
+    // 讲数据通过函数转化为响应式 ： 函数本身并没有返回值 ，所以不可以直接将options.data进行转换
+    rectify(this._data, this); // 这里获取实例化对象的方式 只是一个折中的方式：后面会通过watcher的方式进行实现
+
+    //  挂载
+    this.mount()
+  }
+
+  // 挂载
+  MyVue.prototype.mount = function () {
+    // 提供一个 render方法： 生成虚dom
+    this.render = this.createRenderFn(); // 该方法就是生成虚拟dom的方法
+    this.mountComponent();
+  }
+
+  MyVue.prototype.mountComponent = function () {
+    // 执行 mountComponent() 函数
+    let mount = () => {
+      this.update(this.render());// 这里update 做了 vue中的虚拟dom和真实dom的diff算法对比
+    }
+    mount.call(this); // 本质应该交给 watcher 来调用（当前没写到那个位置）
+
+    //  为什么
+    //  this.update(this.render());  // 使用发布订阅者模式 ，渲染和计算的行为应该交给 watcher 来完成
+  }
+
+
+  /*
+ * Vue 中使用了 二次提交的 设计结构
+ * 1. 在页面中的DOM 和虚拟 DOM 是一一对应的关系
+ * 2. 先 有AST和数据 生成VNode（新，render） --> CreateRenderFn()
+ * 3. 将旧的的 VNode 和新的VNode进行diff比较，然后更新数据 --> update()
+ * */
+  MyVue.prototype.createRenderFn = function () {
+    // 该方法是为了生成render的函数，目的是缓存（做 抽象语法树，我们在这里使用虚拟DOM来模拟）
+    let ast = generalVNode(this._template)
+
+    return function render() {
+      //  Vue 将 AST + data => VNode
+      //  我们简化实现： 带 “坑”的VNode + data => 含数据的VNode
+      let _tmp = combine(ast, this._data);
+      return _tmp;
+    };
+  }
+
+  //  将虚拟DOM渲染到页面：  diff 算法，做新旧dom对比
+  MyVue.prototype.update = function (vnode) {
+    // 简化， 直接生成HTML DOM 通过 replaceChild 到页面： 父元素.replaceChild(new, old)
+    let realDOM = parseVNode(vnode);
+
+    this._parent.replaceChild(realDOM, document.getElementById('root'));
+    // 这种做法是不负责任的： 每次都会将页面中的 DOM 全部替换掉的
+  }
+
+  // 响应式化的部分
+  let ARRAY_METHOD = [
+    'push',
+    'pop',
+    'shift',
+    'unshift',
+    'reverse',
+    'sort',
+    'splice',
+  ];
+  let array_methods = Object.create(Array.prototype);
+  //  替换 原型方法
+  ARRAY_METHOD.forEach(method => {
+    array_methods[method] = function () {
+      // 将数据进行响应式化
+      [...arguments].forEach(item => {
+        rectify(item);
+      })
+
+      let res = Array.prototype[method].apply(this, arguments)
+      return res
+    }
+  })
+  //  vue 中通过 Object.defineProperty()  对数据进行响应式设置
+  // 简化后的版本
+  function defineReactive(targetObj, prop, value, enumerable) {
+    // 折中处理后, this 就是 Vue 实例
+    let _this = this;
+    // 判断非数组的引用类型
+    if (typeof (value) == "object" && typeof (value) == null && !Array.isArray(value)) {
+      rectify(value, vm);// 递归处理的是非数组的引用类型
+    }
+    // 函数内部就是一个局部作用域 value就只在函数内部使用的变量
+    Object.defineProperty(targetObj, prop, {
+      configurable: true,
+      enumerable: !!enumerable,
+      get() {
+        return value;
+      },
+      set(newVal) {
+        value = rectify(newVal, _this);
+        _this.mountComponent();// 模板刷新 ( 这现在是假的, 只是演示 )
+      }
+    })
+  }
+
+  /*
+  * 不可以 通过typeOf 来判断属性：因为 Object.keys() 会将原始值以数组的方式返回
+  * */
+  //将对象响应式化
+  function rectify(obj, vm) {
+    let keys = Object.keys(obj);
+    keys.forEach(item => {
+      let value = obj[item]
+      if (Array.isArray(value)) {
+        value.__proto__ = array_methods; // 处理数组响应式
+        value.forEach(item => {
+          rectify(item, vm)
+        })
+      } else {
+        // 判断对象或值类型
+        defineReactive.call(vm, obj, item, obj[item], true)
+      }
+      /*
+      * 当前 我们在实例对象上访问属性时是通过_data访问的，解决方法：将实例对象和构造函数绑定在同一个数据源上（vue的逻辑相当复杂）
+      * 我们通过代理的方式来解决，如果在这里将属性映射到我们的MyVue的实例上，那么就表示该实例可以使用属性item了
+      *  --------   但会产生一个新的问题（在这里写的代码 都会被递归）   --------------
+      *  {
+      *     data: { name: "zhangsan", child: [name: "xiaozhang"]}
+      *     // 最内层的name会将外层的name覆盖，也就意味着：内层属性会将外层属性因为递归的缘故，在同名时将其覆盖
+      * }
+      * */
+
+    })
+  }
+
+  let app = new MyVue({
+    el: "root",
+    data: {
+      name: "myVUE",
+      message: {meg: "模仿vue实现封装一个 myVue！"},
+      like: [
+        {a: "aaa"},
+        {b: "bbb"},
+        {c: "ccc"},
+        {d: "ddd"},
+      ]
+    },
+  })
+
+
+</script>
+</body>
+</html>

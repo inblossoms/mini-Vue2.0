@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>数据驱动</title>
+</head>
+<body>
+<!--
+    实现步骤：
+    1. 获取模板
+    2. 获取数据
+    3. 将数据和模板进行结合， 得到的是 HTML 元素（DOM元素）
+    4. 放到页面上
+-->
+<div id="root">
+    <span>{{ name }}</span>
+    <span>{{ message }}</span>
+</div>
+
+<script>
+
+
+  let el = document.getElementById("root")
+
+  let data = {
+    name: "Vue",
+    message: "简单实现vue中的数据驱动"
+  }
+
+  // 3. 数据与模板进行结合
+  // 在当前案例中，template 是 DOM
+  //  而 Vue 中源码是 DOM -> 字符串模板 -> VNode -> 真实dom
+
+  function compiler(template, data) {
+    let childNodes = template.childNodes; // 取出子元素
+    let childLen = childNodes.length;
+    for (let i = 0; i < childLen; i++) {
+      let childType = childNodes[i].nodeType; // 1 => 元素节点，3 => 文本节点
+      if (childType === 3) { // 判断该文本节点是否存在插值
+        let text = childNodes[i].nodeValue; // .nodeValue 方法，只对文本节点有意义
+        // 通过正则获取花括号内的值 对其值和我们的data进行绑定
+        //  replace(reg, callback) 当调用栈满足reg时，回调就会被触发；函数的首个参数表示：满足规则的内容，第N个值表示符合规则的N组数据
+        text = text.replace(regBrace, function (_, g) {
+          let key = g.trim(); // g 即为：括号内的内容
+          return data[key]; // 将模板中的值替换为data中对应变量的值
+        })
+        //  由于 text 只是在childNodes文本节点上获取到的值，而该childNodes文本节点的值并没有被该text替换 所以我们将他替换掉
+        childNodes[i].nodeValue = text;
+      } else if (childType === 1) {
+        compiler(childNodes[i], data); // 判断当前元素是否存在子元素，通过递归让其子元素进行判断是否存在插值
+      }
+    }
+  }
+
+  // 利用模板生成一个需要被渲染的 HTMl 元素，（准 真正在页面显示的 标签）
+  let generateNode = el.cloneNode(true) // 可以通过该方法对 dom 元素进行克隆
+
+  console.log(el)
+  compiler(generateNode, data) // 将页面存在的坑通过data内所定义的变量替换掉
+  console.log(generateNode)
+
+
+  /*
+  *   console.log(el)
+      compiler(el, data)
+      console.log(el)
+  *   如果我们直接去查看 dom 在页面上的渲染，就不会存在vue中数据还未渲染到页面上的模板
+  *   因为 dom 是引用类型的，所以执行前后的页面都是更新后的数据，这样的话模板就不存在了
+  * */
+
+  //  4. 将数据在页面上进行渲染
+  root.parentNode.replaceChildren(generateNode, root)
+
+  /*
+  * 以上存在问题：
+  * 1. 不存在虚拟 DOM ，
+  * 2. 只考虑到了单属性，在模板中的插值语法内无法做到层级嵌套 ==> {{ child.name }}
+  * 3. 代码没有整合，不可以作为方法直接调用
+  * */
+</script>
+
+</body>
+</html>

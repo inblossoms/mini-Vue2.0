@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>封装vue数据驱动函数</title>
+</head>
+<body>
+
+<div id="root">
+    <h3>{{name}}:{{message.meg}}</h3>
+    <div>
+        <span>{{name}}</span>
+        <span>{{message.meg}}</span>
+    </div>
+</div>
+
+<script>
+  let regBrace = /\{\{(.+?)\}\}/g;
+
+  //  递归 获取 dom 内且套的插值
+  function compiler(template, data) {
+    let childNodes = template.childNodes; // 取出子元素
+    let childLen = childNodes.length;
+    for (let i = 0; i < childLen; i++) {
+      let childType = childNodes[i].nodeType; // 1 => 元素节点，3 => 文本节点
+      if (childType === 3) { // 判断该文本节点是否存在插值
+        let text = childNodes[i].nodeValue; // .nodeValue 方法，只对文本节点有意义
+        // 通过正则获取花括号内的值 对其值和我们的data进行绑定
+        //  replace(reg, callback) 当调用栈满足reg时，回调就会被触发；函数的首个参数表示：满足规则的内容，第N个值表示符合规则的N组数据
+        text = text.replace(regBrace, function (_, g) {
+          let key = g.trim(); // g 即为：括号内的内容
+          return getValeByPath(data, key) // 将模板中的值替换为data中对应变量的值
+        })
+        //  由于 text 只是在childNodes文本节点上获取到的值，而该childNodes文本节点的值并没有被该text替换 所以我们将他替换掉
+        childNodes[i].nodeValue = text;
+      } else if (childType === 1) {
+        compiler(childNodes[i], data); // 判断当前元素是否存在子元素，通过递归让其子元素进行判断是否存在插值
+      }
+    }
+  }
+
+  //  封装函数
+  function myVue(options) {
+    //  vue 中：内部数据 _ 下划线开头，静态数据 $ 开头
+    this._data = options.data;
+    this._el = options.el;
+
+    //  准备工作  预备模板
+    this.$el = this._templateDom = document.getElementById("root")
+    this.parentDom = this._templateDom.parentNode;
+
+    //  渲染
+    this.render()
+  }
+
+  //  将模板结合数据 渲染到页面
+  myVue.prototype.render = function () {
+    this.compiler();
+  }
+  //  编译： 将模板与数据结合  得到真正的dom元素
+  myVue.prototype.compiler = function () {
+    // 通过模板得到一个 准的 Dom
+    let realHtmlDom = this._templateDom.cloneNode(true);
+    compiler(realHtmlDom, this._data);
+    this.update(realHtmlDom)
+  }
+  //  将 dom 元素插入页面
+  myVue.prototype.update = function (real) {
+    this.parentDom.replaceChildren(real, document.getElementById("root"))
+  }
+
+  //  解决插值中的层级嵌套取值问题
+  //  柯里化版本
+  function createGetValueByPath(path) {
+    let paths = path.split(".");
+    return function getValeByPath(obj) {
+      let res = obj
+        , prop;
+      /*
+      * 循环执行思路；
+      *   先通过 obj.x 取得对象中第一层的结果，再在此基础上 获取下一层内容结果，以此类推
+      *   eg: let res = null;
+      *       res = obj[ paths[0] ]
+      *       res = res[ paths[1] ]
+      *       res = res[ paths[2] ]
+      *       .........
+      * */
+      while (prop = paths.shift()) {
+        res = res[prop];
+      }
+      return res
+    }
+  }
+
+  //  普通版
+  function getValeByPath(obj, path) {
+    let paths = path.split(".");
+    let res = obj
+      , prop;
+    while (prop = paths.shift()) {
+      res = res[prop];
+    }
+    return res
+  }
+
+  let vm = new myVue({
+    el: "root",
+    data: {
+      name: "myVUE",
+      message: {meg: "模仿vue实现封装一个 myVue！"}
+    }
+  })
+
+</script>
+
+
+</body>
+</html>

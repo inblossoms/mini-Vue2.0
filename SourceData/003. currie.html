@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Currie</title>
+</head>
+<body>
+<!--
+    vue 内部对元素包括内在属性 通过柯里化的方式在优化性能的同时做出判断
+-->
+<script>
+  let tags = "div, span, ul, img, a, template".split(",");
+
+  function makeMap(data) {
+    let el = {};  // 元素集合
+    tags.forEach(item => el[item] = true);
+    return function (tagName) {
+      return !!el[tagName && tagName.toLowerCase()];
+    }
+  }
+
+  let isHTMLTag = makeMap(tags)
+  console.log(isHTMLTag("p"))
+</script>
+</body>
+</html>

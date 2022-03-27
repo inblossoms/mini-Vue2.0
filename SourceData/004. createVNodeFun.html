@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div id="root">
+    <h3>{{name}}:{{message}}</h3>
+    <div>
+        <span>{{name}}</span>
+        <span>{{message}}</span>
+    </div>
+</div>
+
+
+<script>
+
+  let regBrace = /\{\{(.+?)\}\}/g
+
+  // 生成虚拟dom的构造函数
+  class VNode {
+    constructor(tag, data, value, type) {
+      this.tag = tag && tag.toLowerCase();
+      this.data = data;
+      this.value = value;
+      this.type = type;
+      this.children = [];
+    }
+
+    appendChild(vnode) {
+      this.children.push(vnode);
+    }
+
+  }
+
+  //  根据插值语法内的路径 访问data中对象成员
+  function getValeByPath(obj, path) {
+    let paths = path.split(".");
+    let res = obj
+      , prop;
+    while (prop = paths.shift()) {
+      res = res[prop];
+    }
+    return res
+  }
+
+  // 创建虚拟dom： Vdom (由 HTML DOM  ---> VNode: 将这个函数当做 compiler 函数)
+  function generalVNode(node) {
+    //  获取 tag
+    let nodeType = node.nodeType,
+      _vnode = null; // 接收当前节点的内容，包括其属性值
+    if (nodeType === 1) {
+      let nodeTagName = node.nodeName,
+        attrs = node.attributes, // .attributes 获取到的是节点上所有属性组成的伪数组。
+        _attrsObj = {}, // 负责接收将attrs这个伪数组转换成对象后的内容
+        a;
+
+      for (let i = 0; i < attrs.length; i++) { // attrs[i] 是一个属性节点，它身上有两个属性(nodeName,nodeValuee) 它的nodeType === 2
+        _attrsObj[attrs[i].nodeName] = attrs[i].nodeValue
+      }
+
+      _vnode = new VNode(nodeTagName, _attrsObj, undefined, nodeType)
+
+      //  考虑： 当前传进来的 ndoe（真实dom）是否存在子元素
+      let nodeChilds = node.childNodes;
+      for (let i = 0; i < nodeChilds.length; i++) {
+        _vnode.appendChild(generalVNode(nodeChilds[i]));  // 递归处理层级嵌套问题
+      }
+    } else if (nodeType === 3) {
+      _vnode = new VNode(undefined, undefined, node.nodeValue, nodeType)
+    }
+
+    return _vnode; // 将定义后的节点内容返回
+  }
+
+  // 将 vdom 转换为真正的dom
+  function parseVNode(vnode) {
+    //  创建 真实 DOM
+    let type = vnode.type,
+      _node = null; // 作为函数返回的真实dom
+
+    if (type === 3) {
+      return document.createTextNode(vnode.value);
+    } else if (type === 1) { // 需要判断是否存在子节点 包括其所有属性
+      _node = document.createElement(vnode.tag);
+
+      //  判断属性
+      let data = vnode.data; // 现在这个data是存放我们拿到的dom元素节点的键值对
+      Object.keys(data).forEach((key) => {
+        let attrName = key,
+          attrValue = data[key];
+        _node.setAttribute(attrName, attrValue)
+      })
+
+      //  子元素
+      let children = vnode.children;
+      children.forEach(subVNode => {
+        return _node.appendChild(parseVNode(subVNode))
+      });
+
+      return _node
+    }
+  }
+
+  // 将 未渲染值的 VNode 和 数据 data结合， 得到填充数据的 VNode： 模拟 AST -> VNode
+  function combine(vnode, data) {
+    let _type = vnode.type,
+      _data = vnode.data,
+      _value = vnode.value,
+      _tag = vnode.tag,
+      _children = vnode.children;
+
+
+    let _vnode = null;
+    if (_type === 3) {
+      // 对文本节点进行处理
+      _value = _value.replace(regBrace, function (_, g) {
+        return getValeByPath(data, g.trim())
+      })
+      _vnode = new VNode(_tag, _data, _value, _type);
+
+    } else if (_type === 1) { // 需要判断是否存在子节点 包括其所有属性
+      _vnode = new VNode(_tag, _data, _value, _type);
+      _children.forEach(_subVNode => _vnode.appendChild(combine(_subVNode, data)))
+    }
+    return _vnode
+  }
+
+  function MyVue(options) {
+    // this._el = options.el;
+    this._data = options.data;
+    let elm = document.getElementById(options.el); // vue 中模板是字符串，我们是DOM 模拟
+    this._template = elm;
+    this._parent = elm.parentNode;
+
+    this.mount(); // 挂载
+  }
+
+  // 挂载
+  MyVue.prototype.mount = function () {
+    // 提供一个 render方法： 生成虚dom
+    this.render = this.createRenderFn(); // 该方法就是生成虚拟dom的方法
+    this.mountComponent();
+  }
+
+  //
+  MyVue.prototype.mountComponent = function () {
+    // 执行 mountComponent() 函数
+    let mount = () => {
+      this.update(this.render());// 这里update 做了 vue中的虚拟dom和真实dom的diff算法对比
+    }
+    mount.call(this); // 本质应该交给 watcher 来调用（当前没写到那个位置）
+
+    //  为什么
+    //  this.update(this.render());  // 使用发布订阅者模式 ，渲染和计算的行为应该交给 watcher 来完成
+  }
+
+  /*
+  * Vue 中使用了 二次提交的 设计结构
+  * 1. 在页面中的DOM 和虚拟 DOM 是一一对应的关系
+  * 2. 先 有AST和数据 生成VNode（新，render） --> CreateRenderFn()
+  * 3. 将旧的的 VNode 和新的VNode进行diff比较，然后更新数据 --> update()
+  * */
+  MyVue.prototype.createRenderFn = function () {
+    // 该方法是为了生成render的函数，目的是缓存（做 抽象语法树，我们在这里使用虚拟DOM来模拟）
+    let ast = generalVNode(this._template)
+
+    return function render() {
+      //  Vue 将 AST + data => VNode
+      //  我们简化实现： 带 “坑”的VNode + data => 含数据的VNode
+      let _tmp = combine(ast, this._data);
+      return _tmp;
+    };
+  }
+  //  将虚拟DOM渲染到页面：  diff 算法，做新旧dom对比
+  MyVue.prototype.update = function (vnode) {
+    // 简化， 直接生成HTML DOM 通过 replaceChild 到页面： 父元素.replaceChild(new, old)
+    let realDOM = parseVNode(vnode);
+
+    // 下面这种做法是不负责任的： 每次都会将页面中的 DOM 全部替换掉的
+    this._parent.replaceChildren(realDOM, document.getElementById("root"))
+  }
+
+
+  let app = new MyVue({
+    el: "root",
+    data: {
+      name: "Vue",
+      message: "lorem"
+    }
+  })
+</script>
+
+</body>
+</html>

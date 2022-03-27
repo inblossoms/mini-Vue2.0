@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data response</title>
+</head>
+<body>
+
+<script>
+  let obj = {
+    name: "zhangSan",
+    age: 20,
+    sex: "male",
+    friend: [
+      {
+        name: "lisi"
+      },
+      {
+        name: "wangWu",
+        friend: [
+          {name: "zhaoLiu"}
+        ]
+      }
+    ],
+    like: [
+      ["apple", "pear"], ["footBall"]
+    ]
+  }
+  let ARRAY_METHOD = [
+    "push", "pop", "shift", "unshift", "reverse", "sort", "splice"
+  ] // 全大写用来存储常量
+
+  //  vue 中通过 Object.defineProperty()  对数据进行响应式设置
+  //  简化后的版本
+
+  function defineReactive(targetObj, prop, value, enumerable) {
+    // 判断非数组的引用类型
+    if (typeof (value) == "object" && typeof (value) == null && !Array.isArray(value)) {
+      rectify(value);
+    }
+    // 函数内部就是一个局部作用域 value就只在函数内部使用的变量
+    Object.defineProperty(targetObj, prop, {
+      configurable: true,
+      enumerable: !!enumerable,
+      get() {
+        return value;
+      },
+      set(newVal) {
+        value = newVal;
+        // value = rectify(newVal)
+      }
+    })
+  }
+
+  /*
+  * 不可以 通过typeOf 来判断属性：因为 Object.keys() 会将原始值以数组的方式返回
+  * */
+
+  //将对象响应式化
+  function rectify(obj) {
+    let keys = Object.keys(obj);
+    keys.forEach(item => {
+      let value = obj[item]
+      if (Array.isArray(value)) {
+        value.__proto__ = array_methods; // 处理数组响应式
+        value.forEach(item => {
+          rectify(item)
+        })
+      } else {
+        // 判断对象或值类型
+        defineReactive(obj, item, obj[item], true)
+      }
+    })
+  }
+
+  /*
+  *    同 vue2 一样 我们没有对新加入的数据做到直接的响应式化，处理方法：
+  *     1. 使用临时的函数名存储函数
+  *     2. 重新定义原来的函数
+  *     3. 定义扩展功能
+  *     4. 调用临时函数
+  *    通过 修改被调用的函数对象的原型的数组方法实现响应式（__proto__）
+  *
+       函数的扩展功能： 在原有函数的基础上增加额外的操作就叫做 == 函数的拦截
+       思路：原型链继承 修改原型链的结构
+  *    继承关系：
+  *     arr -> Array.prototype -> Object.prototype
+  *    修改后的继承关系：
+  *     arr -> 改写后的方法 -> Array.prototype -> Object.prototype
+  *
+  * */
+
+
+  let array_methods = Object.create(Array.prototype);
+  //  替换 原型方法
+  ARRAY_METHOD.forEach(method => {
+    array_methods[method] = function () {
+      // 将数据进行响应式化
+      [...arguments].forEach(item => {
+        rectify(item);
+      })
+
+      let res = Array.prototype[method].apply(this, arguments)
+      return res
+    }
+  })
+
+
+  // 原始函数功能
+  // function originalFn() {
+  //
+  // }
+  //
+  // // 1. 临时的存储函数
+  // let _temporary = originalFn();
+  //
+  // // 2. 函数的重新定义
+  // originalFn = function () {
+  //   // 4. 调用原始功能
+  //   _temporary();
+  //
+  //   // 3. 定义扩展功能
+  //
+  // }
+
+  rectify(obj)
+  // originalFn();
+</script>
+
+
+</body>
+</html>
