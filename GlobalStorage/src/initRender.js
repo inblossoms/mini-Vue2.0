@@ -11,13 +11,8 @@ MyVue.prototype.mountComponent = function () {
     this.update(this.render());// 这里update 做了 vue中的虚拟dom和真实dom的diff算法对比
   }
   // 这个 Watcher 就是全局的 Watcher, 在任何一个位置都可以访问他了 ( 简化的写法 )
-  Dep.target = new Watcher(this, mount); // 相当于这里调用了 mount
+  new Watcher(this, mount); // 相当于这里调用了 mount
 
-  /*
-  *   mount.call(this); // 本质应该交给 watcher 来调用（当前没写到那个位置）
-      为什么
-      this.update(this.render());  // 使用发布订阅者模式 ，渲染和计算的行为应该交给 watcher 来完成
-  * */
 }
 
 /*

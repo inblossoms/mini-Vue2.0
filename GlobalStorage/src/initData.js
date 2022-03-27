@@ -31,19 +31,22 @@ function defineReactive(targetObj, prop, value, enumerable) {
   }
 
   let dep = new Dep();  // 为每一个属性定义 dep 对象
-
+  dep.__propName__ = prop;
   // 函数内部就是一个局部作用域 value就只在函数内部使用的变量
   Object.defineProperty(targetObj, prop, {
     configurable: true,
     enumerable: !!enumerable,
     get() {
       // 依赖收集（暂时 略）
+      dep.depend();
+
       return value;
     },
     set(newVal) {
       if (value === newVal) return;
 
-      // 不安全 临时的处理方法
+      // 目的
+      // 将重新赋值的数据变成响应式的, 因此如果传入的是对象类型, 那么就需要使用 observe 将其转换为响应式
       if (typeof newVal === 'object' && typeof newVal != null) {
         // observe(newVal, _this); // 此方法在目前间断作为过渡 不安全
         observe(newVal)
@@ -61,37 +64,6 @@ function defineReactive(targetObj, prop, value, enumerable) {
     }
   })
 }
-
-/*
-* 不可以 通过typeOf 来判断属性：因为 Object.keys() 会将原始值以数组的方式返回
-* */
-
-//将对象响应式化
-// function rectify(obj, vm) {
-//   let keys = Object.keys(obj); // 这里并没有对 obj 本身进行响应式处理，是对 obj 的成员进行响应式处理
-//   keys.forEach(item => {
-//     let value = obj[item]
-//     if (Array.isArray(value)) {
-//       value.__proto__ = array_methods; // 处理数组响应式
-//       value.forEach(item => {
-//         rectify(item, vm)
-//       })
-//     } else {
-//       // 判断对象或值类型
-//       defineReactive.call(vm, obj, item, obj[item], true)
-//     }
-//     /*
-//     * 当前 我们在实例对象上访问属性时是通过_data访问的，解决方法：将实例对象和构造函数绑定在同一个数据源上（vue的逻辑相当复杂）
-//     * 我们通过代理的方式来解决，如果在这里将属性映射到我们的MyVue的实例上，那么就表示该实例可以使用属性item了
-//     *  --------   但会产生一个新的问题（在这里写的代码 都会被递归）   --------------
-//     *  {
-//     *     data: { name: "zhangsan", child: [name: "xiaozhang"]}
-//     *     // 最内层的name会将外层的name覆盖，也就意味着：内层属性会将外层属性因为递归的缘故，在同名时将其覆盖
-//     * }
-//     * */
-//
-//   })
-// }
 
 // 将对象 obj 变成响应式不仅仅局限于他的成员，vm就是myVue的实例作调用时的上下文
 function observe(obj, vm) {
@@ -117,16 +89,13 @@ function observe(obj, vm) {
 MyVue.prototype.initData = function () {
   // 遍历 this._data 的成员，将属性转化为响应式，将直接属性代理到实例上
   let keys = Object.keys(this._data);
-
   // 响应式化: 这里将 对象this._data[ item ]变成响应式的
-
   observe(this._data, this)
-
-
   // 代理: 将this._data[ item ]映射到 this.[ item ]上
   keys.forEach(item => {
     /*
-    *  这里要 调用者 this 提供 keys[ item ] 这个属性，在访问这个属性的时候相当于访问 this._data
+    *  这里要 调用者 this 提供 keys[ item ] 这个属性，
+    * 在访问这个属性的时候相当于访问 this._data
     * */
     proxy(this, "_data", item)
   })

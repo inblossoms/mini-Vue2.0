@@ -7,19 +7,20 @@
   <title>Document</title>
 </head>
 <body>
-  <div id="root">
-    <div class="c1">
-      <div title="tt1" id="id">{{ name }}</div>
-      <div title="tt2">{{ age }}</div>
-      <div title="tt3">{{ gender }}</div>
-      <ul>
-        <li>1</li>
-        <li>2</li>
-        <li>3</li>
-      </ul>
-    </div>
+<div id="root">
+  <div class="c1">
+    <div title="tt1" id="id">{{ name }}</div>
+    <div title="tt2">{{ age }}</div>
+    <div title="tt3">{{ gender }}</div>
+    <ul>
+      <li>1</li>
+      <li>2</li>
+      <li>3</li>
+    </ul>
   </div>
-  <script src="./src/watcher.js"></script>
+</div>
+
+<script src="./src/watcher.js"></script>
   <script src="./src/dep.js"></script>
   <script src="./src/vNode.js"></script>
   <script src="./src/compiler.js"></script>
@@ -34,6 +35,7 @@
         name: '张三',
         age: 40,
         gender: '男',
+        father: '父亲',
         children: [
           { name: '张小一', age: 9, gender: '男' },
           { name: '张小二', age: 6, gender: '女' },
@@ -44,16 +46,6 @@
             c: 'jim'
           }
         }
-      },
-
-      computed:{
-        // 计算属性也是响应式的 ( watcher )
-      },
-
-      watch: {
-        // 监听什么属性, 这个属性是支持路径语法
-        // 也是使用 watcher 实现
-        // 'a.b.c': ( oldV, newV ) {  }
       }
 
     } );

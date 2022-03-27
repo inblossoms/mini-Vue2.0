@@ -1,15 +1,19 @@
+
+let watcherid = 0;
+
 /** Watcher 观察者, 用于 发射更新的行为 */
 class Watcher {
+
   /**
    *
    * @param {Object} vm JGVue 实例
-   * @param {String|Function} expOrfn
-   *  1.  如果是渲染 watcher, 传入的就是渲染函数,
-   *  2.  如果是 计算 watcher 传入的就是路径表达式, 代码当前只考虑 expOrFn 为函数的情况.
+   * @param {String|Function} expOrfn 如果是渲染 watcher, 传入的就是渲染函数, 如果是 计算 watcher 传入的就是路径表达式, 暂时只考虑 expOrFn 为函数的情况.
    */
   constructor( vm, expOrfn ) {
     this.vm = vm;
     this.getter = expOrfn;
+
+    this.id = watcherid++;
 
     this.deps = []; // 依赖项
     this.depIds = {}; // 是一个 Set 类型, 用于保证 依赖项的唯一性 ( 简化的代码暂时不实现这一块 )
@@ -20,7 +24,11 @@ class Watcher {
 
   /** 计算, 触发 getter */
   get() {
+    pushTarget( this );
+
     this.getter.call( this.vm, this.vm ); // 上下文的问题就解决了
+
+    popTarget();
   }
 
   /**
@@ -40,5 +48,10 @@ class Watcher {
   /** 清空依赖队列 */
   cleanupDep() {
 
+  }
+
+  /** 将 当前的 dep 与 当前的 watcher 关联 */
+  addDep( dep ) {
+    this.deps.push( dep );
   }
 }
