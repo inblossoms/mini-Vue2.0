@@ -1,9 +1,6 @@
-
-let watcherid = 0;
-
+let watcherId = 0;
 /** Watcher 观察者, 用于 发射更新的行为 */
 class Watcher {
-
   /**
    *
    * @param {Object} vm JGVue 实例
@@ -12,8 +9,7 @@ class Watcher {
   constructor( vm, expOrfn ) {
     this.vm = vm;
     this.getter = expOrfn;
-
-    this.id = watcherid++;
+    this.id = watcherId++;
 
     this.deps = []; // 依赖项
     this.depIds = {}; // 是一个 Set 类型, 用于保证 依赖项的唯一性 ( 简化的代码暂时不实现这一块 )
@@ -25,9 +21,7 @@ class Watcher {
   /** 计算, 触发 getter */
   get() {
     pushTarget( this );
-
     this.getter.call( this.vm, this.vm ); // 上下文的问题就解决了
-
     popTarget();
   }
 

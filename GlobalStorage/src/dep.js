@@ -1,3 +1,4 @@
+/* Dep 做依赖收集（depend）和 派发更新（notify）*/
 let depId = 0;
 class Dep {
   constructor() {
@@ -27,9 +28,9 @@ class Dep {
       Dep.target.addDep(this); // 将当前的 dep 与 当前渲染 watcher 关联起来
     }
   }
-  /** 触发与之关联的 watcher 的 update 方法, 起到更新的作用 */
+  /** dep触发中subs的数据（subs所存储的就是 渲染watcher 然后依次调用其的 update 方法）, 起到更新的作用 */
   notify() {
-    // 在真实的 Vue 中是依次触发 this.subs 中的 watcher 的 update 方法
+    // 在真实的 Vue 中是依次触发 this.subs中的Dep。Dep 中的 watcher 的 update 方法
     // 此时, deps 中已经关联到 我们需要使用的 那个 watcher 了
     let deps = this.subs.slice();
 
@@ -38,8 +39,6 @@ class Dep {
     });
   }
 }
-
-
 // 全局的容器存储渲染 Watcher
 Dep.target = null;
 let targetStack = [];

@@ -37,7 +37,7 @@ function defineReactive(targetObj, prop, value, enumerable) {
     configurable: true,
     enumerable: !!enumerable,
     get() {
-      // 依赖收集（暂时 略）
+      // 依赖收集
       dep.depend();
 
       return value;
