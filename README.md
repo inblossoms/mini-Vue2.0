@@ -14,3 +14,10 @@
 1. SourceData：将整个串联起来的miniVue，将其所涉及的知识点拆分出来，单独梳理
 2. Modularization：进行模块化
 3. GlobalStorage：在模块化的基础上添加 Watcher 和 Dep
+
+**miniVue：**：最终版；(详细实现方式的内容描述在近段时间内补充)
+
+> 使用：
+>
+> 1. npm install
+> 2. npm run dev 或 cnpm run dev
