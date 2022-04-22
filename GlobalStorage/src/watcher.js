@@ -1,5 +1,9 @@
 let watcherId = 0;
-/** Watcher 观察者, 用于 发射更新的行为 */
+/**
+  Watcher 观察者, 用于 发射更新的行为 
+  在 vue 中，每个组件实例都有响应的watcher实例对象，他会在组件渲染的过程中间将属性记录为依赖，
+  之后在当依赖项的setter被调用时，会通知watcher重新进行计算，从而致使他关联的组件得以更新。
+*/
 class Watcher {
   /**
    *
